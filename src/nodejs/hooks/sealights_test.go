@@ -2,15 +2,16 @@ package hooks_test
 
 import (
 	"bytes"
-	"github.com/cloudfoundry/libbuildpack"
-	"github.com/cloudfoundry/nodejs-buildpack/src/nodejs/hooks"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cloudfoundry/libbuildpack"
+	"github.com/cloudfoundry/nodejs-buildpack/src/nodejs/hooks"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 type Command struct {
@@ -161,7 +162,7 @@ var _ = Describe("Sealights hook", func() {
 					Expect(err).To(BeNil())
 					err = os.Setenv("SL_TEST_STAGE", stage)
 					Expect(err).To(BeNil())
-					err = sealights.SetApplicationStartInProcfile(stager)
+					err = sealights.SetApplicationStartInProcfile(stager, token)
 					Expect(err).To(BeNil())
 					bytes, err := ioutil.ReadFile(filepath.Join(stager.BuildDir(), procfileName))
 					Expect(err).To(BeNil())
@@ -173,7 +174,7 @@ var _ = Describe("Sealights hook", func() {
 					Expect(err).NotTo(HaveOccurred())
 					err = os.Setenv("SL_BUILD_SESSION_ID_FILE", "")
 					Expect(err).NotTo(HaveOccurred())
-					err = sealights.SetApplicationStartInProcfile(stager)
+					err = sealights.SetApplicationStartInProcfile(stager, token)
 					Expect(err).To(MatchError(ContainSubstring(hooks.EmptyBuildError)))
 				})
 				It("test application run cmd creation", func() {
@@ -186,7 +187,7 @@ var _ = Describe("Sealights hook", func() {
 					err = os.Setenv("SL_BUILD_SESSION_ID_FILE", "")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(err).To(BeNil())
-					err = sealights.SetApplicationStartInProcfile(stager)
+					err = sealights.SetApplicationStartInProcfile(stager, token)
 					bytes, err := ioutil.ReadFile(filepath.Join(stager.BuildDir(), procfileName))
 					Expect(err).To(BeNil())
 					cleanResult := strings.ReplaceAll(string(bytes), " ", "")
@@ -207,7 +208,7 @@ var _ = Describe("Sealights hook", func() {
 					Expect(err).To(BeNil())
 					err = os.Setenv("SL_TEST_STAGE", stage)
 					Expect(err).To(BeNil())
-					err = sealights.SetApplicationStartInPackageJson(stager)
+					err = sealights.SetApplicationStartInPackageJson(stager, token)
 					Expect(err).To(BeNil())
 					packageJson, err := sealights.ReadPackageJson(stager)
 					Expect(err).To(BeNil())
@@ -219,7 +220,7 @@ var _ = Describe("Sealights hook", func() {
 					Expect(err).NotTo(HaveOccurred())
 					err = os.Setenv("SL_BUILD_SESSION_ID_FILE", "")
 					Expect(err).NotTo(HaveOccurred())
-					err = sealights.SetApplicationStartInPackageJson(stager)
+					err = sealights.SetApplicationStartInPackageJson(stager, token)
 					Expect(err).To(MatchError(ContainSubstring(hooks.EmptyBuildError)))
 				})
 				It("test application run cmd creation", func() {
@@ -232,7 +233,7 @@ var _ = Describe("Sealights hook", func() {
 					err = os.Setenv("SL_BUILD_SESSION_ID_FILE", "")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(err).To(BeNil())
-					err = sealights.SetApplicationStartInPackageJson(stager)
+					err = sealights.SetApplicationStartInPackageJson(stager, token)
 					packageJson, err := sealights.ReadPackageJson(stager)
 					Expect(err).To(BeNil())
 					cleanResult := strings.ReplaceAll(packageJson["scripts"].(map[string]interface{})["start"].(string), " ", "")
@@ -253,7 +254,7 @@ var _ = Describe("Sealights hook", func() {
 					Expect(err).To(BeNil())
 					err = os.Setenv("SL_TEST_STAGE", stage)
 					Expect(err).To(BeNil())
-					err = sealights.SetApplicationStartInManifest(stager)
+					err = sealights.SetApplicationStartInManifest(stager, token)
 					Expect(err).To(BeNil())
 					err, manifestFile := sealights.ReadManifestFile(stager, yamlFile)
 					Expect(err).To(BeNil())
@@ -265,7 +266,7 @@ var _ = Describe("Sealights hook", func() {
 					Expect(err).NotTo(HaveOccurred())
 					err = os.Setenv("SL_BUILD_SESSION_ID_FILE", "")
 					Expect(err).NotTo(HaveOccurred())
-					err = sealights.SetApplicationStartInManifest(stager)
+					err = sealights.SetApplicationStartInManifest(stager, token)
 					Expect(err).To(MatchError(ContainSubstring(hooks.EmptyBuildError)))
 				})
 				It("test application run cmd creation", func() {
@@ -278,7 +279,7 @@ var _ = Describe("Sealights hook", func() {
 					err = os.Setenv("SL_BUILD_SESSION_ID_FILE", "")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(err).To(BeNil())
-					err = sealights.SetApplicationStartInManifest(stager)
+					err = sealights.SetApplicationStartInManifest(stager, token)
 					err, manifestFile := sealights.ReadManifestFile(stager, yamlFile)
 					Expect(err).To(BeNil())
 					cleanResult := strings.ReplaceAll(manifestFile.Applications[0].Command, " ", "")

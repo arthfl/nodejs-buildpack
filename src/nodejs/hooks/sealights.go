@@ -3,16 +3,16 @@ package hooks
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cloudfoundry/libbuildpack"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cloudfoundry/libbuildpack"
 )
 
 const EmptyTokenError = "token cannot be empty (env SL_TOKEN | SL_TOKEN_FILE)"
-const SealightsNotBoundError = "Sealights service not bound"
 const EmptyBuildError = "build session id cannot be empty (env SL_BUILD_SESSION_ID | SL_BUILD_SESSION_ID_FILE)"
 const Procfile = "Procfile"
 const PackageJsonFile = "package.json"
@@ -62,8 +62,16 @@ func init() {
 }
 
 func (sl *SealightsHook) AfterCompile(stager *libbuildpack.Stager) error {
-	sl.Log.Info("Inside Sealights hook")
-	err := sl.injectSealights(stager)
+	sl.Log.BeginStep("Sealights after compile hook")
+
+	success, sealightsToken := sl.GetTokenFromEnvironment()
+
+	if !success {
+		sl.Log.Info("Sealights credentials not found. Will not write environment files.")
+		return nil
+	}
+
+	err := sl.injectSealights(stager, sealightsToken)
 	if err != nil {
 		sl.Log.Error("Error injecting Sealights: %s", err)
 		return nil
@@ -77,7 +85,7 @@ func (sl *SealightsHook) AfterCompile(stager *libbuildpack.Stager) error {
 	return nil
 }
 
-func (sl *SealightsHook) SetApplicationStartInProcfile(stager *libbuildpack.Stager) error {
+func (sl *SealightsHook) SetApplicationStartInProcfile(stager *libbuildpack.Stager, credentials string) error {
 	bytes, err := ioutil.ReadFile(filepath.Join(stager.BuildDir(), Procfile))
 	if err != nil {
 		sl.Log.Error("failed to read %s", Procfile)
@@ -86,7 +94,7 @@ func (sl *SealightsHook) SetApplicationStartInProcfile(stager *libbuildpack.Stag
 
 	// we suppose that format is "web: node <application>"
 	var newCmd string
-	err, newCmd = sl.updateStartCommand(string(bytes))
+	err, newCmd = sl.updateStartCommand(string(bytes), credentials)
 
 	if err != nil {
 		return err
@@ -121,7 +129,7 @@ func (sl *SealightsHook) getSealightsOptions(app string, token string) *Sealight
 	return o
 }
 
-func (sl *SealightsHook) SetApplicationStartInPackageJson(stager *libbuildpack.Stager) error {
+func (sl *SealightsHook) SetApplicationStartInPackageJson(stager *libbuildpack.Stager, token string) error {
 	packageJson, err := sl.ReadPackageJson(stager)
 	if err != nil {
 		return err
@@ -132,7 +140,7 @@ func (sl *SealightsHook) SetApplicationStartInPackageJson(stager *libbuildpack.S
 	}
 	// we suppose that format is "start: node <application>"
 	var newCmd string
-	err, newCmd = sl.updateStartCommand(originalStartScript)
+	err, newCmd = sl.updateStartCommand(originalStartScript, token)
 	if err != nil {
 		return err
 	}
@@ -159,7 +167,7 @@ func (sl *SealightsHook) ReadPackageJson(stager *libbuildpack.Stager) (map[strin
 	return p, nil
 }
 
-func (sl *SealightsHook) SetApplicationStartInManifest(stager *libbuildpack.Stager) error {
+func (sl *SealightsHook) SetApplicationStartInManifest(stager *libbuildpack.Stager, token string) error {
 	y := &libbuildpack.YAML{}
 	err, m := sl.ReadManifestFile(stager, y)
 	if err != nil {
@@ -169,7 +177,7 @@ func (sl *SealightsHook) SetApplicationStartInManifest(stager *libbuildpack.Stag
 
 	// we suppose that format is "start: node <application>"
 	var newCmd string
-	err, newCmd = sl.updateStartCommand(originalCommand)
+	err, newCmd = sl.updateStartCommand(originalCommand, token)
 	if err != nil {
 		return err
 	}
@@ -184,14 +192,7 @@ func (sl *SealightsHook) SetApplicationStartInManifest(stager *libbuildpack.Stag
 	return nil
 }
 
-func (sl *SealightsHook) updateStartCommand(originalCommand string) (error, string) {
-	slFound, token := sl.GetTokenFromEnvironment()
-
-	if !slFound {
-		sl.Log.Info("Sealights service not found")
-		return fmt.Errorf(SealightsNotBoundError), ""
-	}
-
+func (sl *SealightsHook) updateStartCommand(originalCommand string, token string) (error, string) {
 	if token == "" {
 		sl.Log.Error("Sealights token not found")
 		return fmt.Errorf(EmptyTokenError), ""
@@ -281,16 +282,16 @@ func (sl *SealightsHook) validate(o *SealightsOptions) error {
 	return nil
 }
 
-func (sl *SealightsHook) injectSealights(stager *libbuildpack.Stager) error {
+func (sl *SealightsHook) injectSealights(stager *libbuildpack.Stager, token string) error {
 	if _, err := os.Stat(filepath.Join(stager.BuildDir(), Procfile)); err == nil {
 		sl.Log.Info("Integrating sealights into procfile")
-		return sl.SetApplicationStartInProcfile(stager)
+		return sl.SetApplicationStartInProcfile(stager, token)
 	} else if _, err := os.Stat(filepath.Join(stager.BuildDir(), ManifestFile)); err == nil {
 		sl.Log.Info("Integrating sealights into manifest.yml")
-		return sl.SetApplicationStartInManifest(stager)
+		return sl.SetApplicationStartInManifest(stager, token)
 	} else {
 		sl.Log.Info("Integrating sealights into package.json")
-		return sl.SetApplicationStartInPackageJson(stager)
+		return sl.SetApplicationStartInPackageJson(stager, token)
 	}
 }
 
